@@ -48,76 +48,84 @@ logger = logging.getLogger(__name__)
 
 task_create_response_scheme = {
     201: openapi.Response(
-        description='Tasks successfully imported',
+        description="Tasks successfully imported",
         schema=openapi.Schema(
-            title='Task creation response',
-            description='Task creation response',
+            title="Task creation response",
+            description="Task creation response",
             type=openapi.TYPE_OBJECT,
             properties={
-                'task_count': openapi.Schema(
-                    title='task_count',
-                    description='Number of tasks added',
-                    type=openapi.TYPE_INTEGER
+                "task_count": openapi.Schema(
+                    title="task_count",
+                    description="Number of tasks added",
+                    type=openapi.TYPE_INTEGER,
                 ),
-                'annotation_count': openapi.Schema(
-                    title='annotation_count',
-                    description='Number of annotations added',
-                    type=openapi.TYPE_INTEGER
+                "annotation_count": openapi.Schema(
+                    title="annotation_count",
+                    description="Number of annotations added",
+                    type=openapi.TYPE_INTEGER,
                 ),
-                'predictions_count': openapi.Schema(
-                    title='predictions_count',
-                    description='Number of predictions added',
-                    type=openapi.TYPE_INTEGER
+                "predictions_count": openapi.Schema(
+                    title="predictions_count",
+                    description="Number of predictions added",
+                    type=openapi.TYPE_INTEGER,
                 ),
-                'duration': openapi.Schema(
-                    title='duration',
-                    description='Time in seconds to create',
-                    type=openapi.TYPE_NUMBER
+                "duration": openapi.Schema(
+                    title="duration",
+                    description="Time in seconds to create",
+                    type=openapi.TYPE_NUMBER,
                 ),
-                'file_upload_ids': openapi.Schema(
-                    title='file_upload_ids',
-                    description='Database IDs of uploaded files',
+                "file_upload_ids": openapi.Schema(
+                    title="file_upload_ids",
+                    description="Database IDs of uploaded files",
                     type=openapi.TYPE_ARRAY,
-                    items=openapi.Schema(title="File Upload IDs", type=openapi.TYPE_INTEGER)
+                    items=openapi.Schema(
+                        title="File Upload IDs", type=openapi.TYPE_INTEGER
+                    ),
                 ),
-                'could_be_tasks_list': openapi.Schema(
-                    title='could_be_tasks_list',
-                    description='Whether uploaded files can contain lists of tasks, like CSV/TSV files',
-                    type=openapi.TYPE_BOOLEAN
+                "could_be_tasks_list": openapi.Schema(
+                    title="could_be_tasks_list",
+                    description="Whether uploaded files can contain lists of tasks, like CSV/TSV files",
+                    type=openapi.TYPE_BOOLEAN,
                 ),
-                'found_formats': openapi.Schema(
-                    title='found_formats',
-                    description='The list of found file formats',
+                "found_formats": openapi.Schema(
+                    title="found_formats",
+                    description="The list of found file formats",
                     type=openapi.TYPE_ARRAY,
-                    items=openapi.Schema(title="File format", type=openapi.TYPE_STRING)
+                    items=openapi.Schema(title="File format", type=openapi.TYPE_STRING),
                 ),
-                'data_columns': openapi.Schema(
-                    title='data_columns',
-                    description='The list of found data columns',
+                "data_columns": openapi.Schema(
+                    title="data_columns",
+                    description="The list of found data columns",
                     type=openapi.TYPE_ARRAY,
-                    items=openapi.Schema(title="Data column name", type=openapi.TYPE_STRING)
-                )
-            })
+                    items=openapi.Schema(
+                        title="Data column name", type=openapi.TYPE_STRING
+                    ),
+                ),
+            },
+        ),
     ),
     400: openapi.Schema(
-        title='Incorrect task data',
+        title="Incorrect task data",
         description="String with error description",
-        type=openapi.TYPE_STRING
-    )
+        type=openapi.TYPE_STRING,
+    ),
 }
 
 
-@method_decorator(name='post', decorator=swagger_auto_schema(
-        tags=['Import'],
+@method_decorator(
+    name="post",
+    decorator=swagger_auto_schema(
+        tags=["Import"],
         responses=task_create_response_scheme,
         manual_parameters=[
             openapi.Parameter(
-                name='id',
+                name="id",
                 type=openapi.TYPE_INTEGER,
                 in_=openapi.IN_PATH,
-                description='A unique integer value identifying this project.'),
+                description="A unique integer value identifying this project.",
+            ),
         ],
-        operation_summary='Import tasks',
+        operation_summary="Import tasks",
         operation_description="""
             Import data as labeling tasks in bulk using this API endpoint. You can use this API endpoint to import multiple tasks.
             One POST request is limited at 250K tasks and 200 MB.
@@ -169,8 +177,11 @@ task_create_response_scheme = {
             ```
 
             <br>
-        """.format(host=(settings.HOSTNAME or 'https://localhost:8080'))
-    ))
+        """.format(
+            host=(settings.HOSTNAME or "https://localhost:8080")
+        ),
+    ),
+)
 # Import
 class ImportAPI(generics.CreateAPIView):
     permission_required = all_permissions.projects_change
@@ -179,12 +190,14 @@ class ImportAPI(generics.CreateAPIView):
     queryset = Task.objects.all()
 
     def get_serializer_context(self):
-        project_id = self.kwargs.get('pk')
+        project_id = self.kwargs.get("pk")
         if project_id:
-            project = generics.get_object_or_404(Project.objects.for_user(self.request.user), pk=project_id)
+            project = generics.get_object_or_404(
+                Project.objects.for_user(self.request.user), pk=project_id
+            )
         else:
             project = None
-        return {'project': project, 'user': self.request.user}
+        return {"project": project, "user": self.request.user}
 
     def post(self, *args, **kwargs):
         return super(ImportAPI, self).post(*args, **kwargs)
@@ -192,17 +205,37 @@ class ImportAPI(generics.CreateAPIView):
     def _save(self, tasks):
         serializer = self.get_serializer(data=tasks, many=True)
         serializer.is_valid(raise_exception=True)
-        task_instances = serializer.save(project_id=self.kwargs['pk'])
-        project = generics.get_object_or_404(Project.objects.for_user(self.request.user), pk=self.kwargs['pk'])
-        emit_webhooks_for_instance(self.request.user.active_organization, project, WebhookAction.TASKS_CREATED, task_instances)
+        task_instances = serializer.save(project_id=self.kwargs["pk"])
+        project = generics.get_object_or_404(
+            Project.objects.for_user(self.request.user), pk=self.kwargs["pk"]
+        )
+        emit_webhooks_for_instance(
+            self.request.user.active_organization,
+            project,
+            WebhookAction.TASKS_CREATED,
+            task_instances,
+        )
         return task_instances, serializer
 
-    def sync_import(self, request, project, preannotated_from_fields, commit_to_project, return_task_ids):
+    def sync_import(
+        self,
+        request,
+        project,
+        preannotated_from_fields,
+        commit_to_project,
+        return_task_ids,
+    ):
         start = time.time()
         tasks = None
         # upload files from request, and parse all tasks
         # TODO: Stop passing request to load_tasks function, make all validation before
-        parsed_data, file_upload_ids, could_be_tasks_list, found_formats, data_columns = load_tasks(request, project)
+        (
+            parsed_data,
+            file_upload_ids,
+            could_be_tasks_list,
+            found_formats,
+            data_columns,
+        ) = load_tasks(request, project)
 
         if preannotated_from_fields:
             # turn flat task JSONs {"column1": value, "column2": value} into {"data": {"column1"..}, "predictions": [{..."column2"}]
@@ -216,17 +249,21 @@ class ImportAPI(generics.CreateAPIView):
             prediction_count = len(serializer.db_predictions)
 
             recalculate_stats_counts = {
-                'task_count': task_count,
-                'annotation_count': annotation_count,
-                'prediction_count': prediction_count,
+                "task_count": task_count,
+                "annotation_count": annotation_count,
+                "prediction_count": prediction_count,
             }
 
             # Update counters (like total_annotations) for new tasks and after bulk update tasks stats. It should be a
             # single operation as counters affect bulk is_labeled update
-            project.update_tasks_counters_and_task_states(tasks_queryset=tasks, maximum_annotations_changed=False,
-                                                          overlap_cohort_percentage_changed=False,
-                                                          tasks_number_changed=True, recalculate_stats_counts=recalculate_stats_counts)
-            logger.info('Tasks bulk_update finished (sync import)')
+            project.update_tasks_counters_and_task_states(
+                tasks_queryset=tasks,
+                maximum_annotations_changed=False,
+                overlap_cohort_percentage_changed=False,
+                tasks_number_changed=True,
+                recalculate_stats_counts=recalculate_stats_counts,
+            )
+            logger.info("Tasks bulk_update finished (sync import)")
 
             project.summary.update_data_columns(parsed_data)
             # TODO: project.summary.update_created_annotations_and_labels
@@ -239,23 +276,29 @@ class ImportAPI(generics.CreateAPIView):
         duration = time.time() - start
 
         response = {
-            'task_count': task_count,
-            'annotation_count': annotation_count,
-            'prediction_count': prediction_count,
-            'duration': duration,
-            'file_upload_ids': file_upload_ids,
-            'could_be_tasks_list': could_be_tasks_list,
-            'found_formats': found_formats,
-            'data_columns': data_columns
+            "task_count": task_count,
+            "annotation_count": annotation_count,
+            "prediction_count": prediction_count,
+            "duration": duration,
+            "file_upload_ids": file_upload_ids,
+            "could_be_tasks_list": could_be_tasks_list,
+            "found_formats": found_formats,
+            "data_columns": data_columns,
         }
         if tasks and return_task_ids:
-            response['task_ids'] = [task.id for task in tasks]
+            response["task_ids"] = [task.id for task in tasks]
 
         return Response(response, status=status.HTTP_201_CREATED)
 
     @timeit
-    def async_import(self, request, project, preannotated_from_fields, commit_to_project, return_task_ids):
-
+    def async_import(
+        self,
+        request,
+        project,
+        preannotated_from_fields,
+        commit_to_project,
+        return_task_ids,
+    ):
         project_import = ProjectImport.objects.create(
             project=project,
             preannotated_from_fields=preannotated_from_fields,
@@ -264,32 +307,40 @@ class ImportAPI(generics.CreateAPIView):
         )
 
         if len(request.FILES):
-            logger.debug(f'Import from files: {request.FILES}')
-            file_upload_ids, could_be_tasks_list = create_file_uploads(request.user, project, request.FILES)
+            logger.debug(f"Import from files: {request.FILES}")
+            file_upload_ids, could_be_tasks_list = create_file_uploads(
+                request.user, project, request.FILES
+            )
             project_import.file_upload_ids = file_upload_ids
             project_import.could_be_tasks_list = could_be_tasks_list
-            project_import.save(update_fields=['file_upload_ids', 'could_be_tasks_list'])
-        elif 'application/x-www-form-urlencoded' in request.content_type:
+            project_import.save(
+                update_fields=["file_upload_ids", "could_be_tasks_list"]
+            )
+        elif "application/x-www-form-urlencoded" in request.content_type:
             logger.debug(f'Import from url: {request.data.get("url")}')
             # empty url
-            url = request.data.get('url')
+            url = request.data.get("url")
             if not url:
                 raise ValidationError('"url" is not found in request data')
             project_import.url = url
-            project_import.save(update_fields=['url'])
+            project_import.save(update_fields=["url"])
         # take one task from request DATA
-        elif 'application/json' in request.content_type and isinstance(request.data, dict):
+        elif "application/json" in request.content_type and isinstance(
+            request.data, dict
+        ):
             project_import.tasks = [request.data]
-            project_import.save(update_fields=['tasks'])
+            project_import.save(update_fields=["tasks"])
 
         # take many tasks from request DATA
-        elif 'application/json' in request.content_type and isinstance(request.data, list):
+        elif "application/json" in request.content_type and isinstance(
+            request.data, list
+        ):
             project_import.tasks = request.data
-            project_import.save(update_fields=['tasks'])
+            project_import.save(update_fields=["tasks"])
 
         # incorrect data source
         else:
-            raise ValidationError('load_tasks: No data found in DATA or in FILES')
+            raise ValidationError("load_tasks: No data found in DATA or in FILES")
 
         start_job_async_or_sync(
             async_import_background,
@@ -300,24 +351,47 @@ class ImportAPI(generics.CreateAPIView):
             organization_id=request.user.active_organization.id,
         )
 
-        response = {
-            "import": project_import.id
-        }
+        response = {"import": project_import.id}
         return Response(response, status=status.HTTP_201_CREATED)
 
     def create(self, request, *args, **kwargs):
-        commit_to_project = bool_from_request(request.query_params, 'commit_to_project', True)
-        return_task_ids = bool_from_request(request.query_params, 'return_task_ids', False)
-        preannotated_from_fields = list_of_strings_from_request(request.query_params, 'preannotated_from_fields', None)
+        commit_to_project = bool_from_request(
+            request.query_params, "commit_to_project", True
+        )
+        return_task_ids = bool_from_request(
+            request.query_params, "return_task_ids", False
+        )
+        preannotated_from_fields = list_of_strings_from_request(
+            request.query_params, "preannotated_from_fields", None
+        )
 
         # check project permissions
-        project = generics.get_object_or_404(Project.objects.for_user(self.request.user), pk=self.kwargs['pk'])
+        project = generics.get_object_or_404(
+            Project.objects.for_user(self.request.user), pk=self.kwargs["pk"]
+        )
 
-        if (flag_set('fflag_feat_all_lsdv_4915_async_task_import_13042023_short', request.user) and
-            settings.VERSION_EDITION != 'Community'):
-            return self.async_import(request, project, preannotated_from_fields, commit_to_project, return_task_ids)
+        if (
+            flag_set(
+                "fflag_feat_all_lsdv_4915_async_task_import_13042023_short",
+                request.user,
+            )
+            and settings.VERSION_EDITION != "Community"
+        ):
+            return self.async_import(
+                request,
+                project,
+                preannotated_from_fields,
+                commit_to_project,
+                return_task_ids,
+            )
         else:
-            return self.sync_import(request, project, preannotated_from_fields, commit_to_project, return_task_ids)
+            return self.sync_import(
+                request,
+                project,
+                preannotated_from_fields,
+                commit_to_project,
+                return_task_ids,
+            )
 
 
 # Import
@@ -332,25 +406,38 @@ class ImportPredictionsAPI(generics.CreateAPIView):
         # check project permissions
         project = self.get_object()
 
-        tasks_ids = set(Task.objects.filter(project=project).values_list('id', flat=True))
+        tasks_ids = set(
+            Task.objects.filter(project=project).values_list("id", flat=True)
+        )
 
-        logger.debug(f'Importing {len(self.request.data)} predictions to project {project} with {len(tasks_ids)} tasks')
+        logger.debug(
+            f"Importing {len(self.request.data)} predictions to project {project} with {len(tasks_ids)} tasks"
+        )
         predictions = []
         for item in self.request.data:
-            if item.get('task') not in tasks_ids:
+            if item.get("task") not in tasks_ids:
                 raise LabelStudioValidationErrorSentryIgnored(
                     f'{item} contains invalid "task" field: corresponding task ID couldn\'t be retrieved '
-                    f'from project {project} tasks')
-            predictions.append(Prediction(
-                task_id=item['task'],
-                project_id=project.id,
-                result=Prediction.prepare_prediction_result(item.get('result'), project),
-                score=item.get('score'),
-                model_version=item.get('model_version', 'undefined')
-            ))
-        predictions_obj = Prediction.objects.bulk_create(predictions, batch_size=settings.BATCH_SIZE)
+                    f"from project {project} tasks"
+                )
+            predictions.append(
+                Prediction(
+                    task_id=item["task"],
+                    project_id=project.id,
+                    result=Prediction.prepare_prediction_result(
+                        item.get("result"), project
+                    ),
+                    score=item.get("score"),
+                    model_version=item.get("model_version", "undefined"),
+                )
+            )
+        predictions_obj = Prediction.objects.bulk_create(
+            predictions, batch_size=settings.BATCH_SIZE
+        )
         project.update_tasks_counters(Task.objects.filter(id__in=tasks_ids))
-        return Response({'created': len(predictions_obj)}, status=status.HTTP_201_CREATED)
+        return Response(
+            {"created": len(predictions_obj)}, status=status.HTTP_201_CREATED
+        )
 
 
 class TasksBulkCreateAPI(ImportAPI):
@@ -384,33 +471,36 @@ class ReImportAPI(ImportAPI):
             overlap_cohort_percentage_changed=False,
             tasks_number_changed=True,
             recalculate_stats_counts={
-                'task_count': task_count,
-                'annotation_count': annotation_count,
-                'prediction_count': prediction_count,
+                "task_count": task_count,
+                "annotation_count": annotation_count,
+                "prediction_count": prediction_count,
             },
         )
-        logger.info('Tasks bulk_update finished (sync reimport)')
+        logger.info("Tasks bulk_update finished (sync reimport)")
 
         project.summary.update_data_columns(tasks)
         # TODO: project.summary.update_created_annotations_and_labels
 
         return Response(
             {
-                'task_count': task_count,
-                'annotation_count': annotation_count,
-                'prediction_count': prediction_count,
-                'duration': duration,
-                'file_upload_ids': file_upload_ids,
-                'found_formats': found_formats,
-                'data_columns': data_columns,
+                "task_count": task_count,
+                "annotation_count": annotation_count,
+                "prediction_count": prediction_count,
+                "duration": duration,
+                "file_upload_ids": file_upload_ids,
+                "found_formats": found_formats,
+                "data_columns": data_columns,
             },
             status=status.HTTP_201_CREATED,
         )
 
-    def async_reimport(self, project, file_upload_ids, files_as_tasks_list, organization_id):
-
+    def async_reimport(
+        self, project, file_upload_ids, files_as_tasks_list, organization_id
+    ):
         project_reimport = ProjectReimport.objects.create(
-            project=project, file_upload_ids=file_upload_ids, files_as_tasks_list=files_as_tasks_list
+            project=project,
+            file_upload_ids=file_upload_ids,
+            files_as_tasks_list=files_as_tasks_list,
         )
 
         start_job_async_or_sync(
@@ -427,37 +517,48 @@ class ReImportAPI(ImportAPI):
 
     @retry_database_locked()
     def create(self, request, *args, **kwargs):
-        files_as_tasks_list = bool_from_request(request.data, 'files_as_tasks_list', True)
-        file_upload_ids = self.request.data.get('file_upload_ids')
+        files_as_tasks_list = bool_from_request(
+            request.data, "files_as_tasks_list", True
+        )
+        file_upload_ids = self.request.data.get("file_upload_ids")
 
         # check project permissions
-        project = generics.get_object_or_404(Project.objects.for_user(self.request.user), pk=self.kwargs['pk'])
+        project = generics.get_object_or_404(
+            Project.objects.for_user(self.request.user), pk=self.kwargs["pk"]
+        )
 
         if not file_upload_ids:
             return Response(
                 {
-                    'task_count': 0,
-                    'annotation_count': 0,
-                    'prediction_count': 0,
-                    'duration': 0,
-                    'file_upload_ids': [],
-                    'found_formats': {},
-                    'data_columns': [],
+                    "task_count": 0,
+                    "annotation_count": 0,
+                    "prediction_count": 0,
+                    "duration": 0,
+                    "file_upload_ids": [],
+                    "found_formats": {},
+                    "data_columns": [],
                 },
                 status=status.HTTP_200_OK,
             )
 
         if (
-            flag_set('fflag_fix_all_lsdv_4971_async_reimport_09052023_short', request.user)
-            and settings.VERSION_EDITION != 'Community'
+            flag_set(
+                "fflag_fix_all_lsdv_4971_async_reimport_09052023_short", request.user
+            )
+            and settings.VERSION_EDITION != "Community"
         ):
-            return self.async_reimport(project, file_upload_ids, files_as_tasks_list, request.user.active_organization_id)
+            return self.async_reimport(
+                project,
+                file_upload_ids,
+                files_as_tasks_list,
+                request.user.active_organization_id,
+            )
         else:
             return self.sync_reimport(project, file_upload_ids, files_as_tasks_list)
 
     @swagger_auto_schema(
         auto_schema=None,
-        operation_summary='Re-import tasks',
+        operation_summary="Re-import tasks",
         operation_description="""
         Re-import tasks using the specified file upload IDs for a specific project.
         """,
@@ -467,37 +568,45 @@ class ReImportAPI(ImportAPI):
 
 
 @method_decorator(
-    name='get',
+    name="get",
     decorator=swagger_auto_schema(
-        tags=['Import'],
-        operation_summary='Get files list',
+        tags=["Import"],
+        operation_summary="Get files list",
         manual_parameters=[
             openapi.Parameter(
-                name='all',
+                name="all",
                 type=openapi.TYPE_BOOLEAN,
                 in_=openapi.IN_QUERY,
-                description='Set to "true" if you want to retrieve all file uploads'),
+                description='Set to "true" if you want to retrieve all file uploads',
+            ),
             openapi.Parameter(
-                name='ids',
+                name="ids",
                 type=openapi.TYPE_ARRAY,
                 in_=openapi.IN_QUERY,
                 items=openapi.Schema(title="File upload ID", type=openapi.TYPE_INTEGER),
-                description='Specify the list of file upload IDs to retrieve, e.g. ids=[1,2,3]'),
+                description="Specify the list of file upload IDs to retrieve, e.g. ids=[1,2,3]",
+            ),
         ],
         operation_description="""
         Retrieve the list of uploaded files used to create labeling tasks for a specific project.
-        """
-        ))
-@method_decorator(name='delete', decorator=swagger_auto_schema(
-        tags=['Import'],
-        operation_summary='Delete files',
+        """,
+    ),
+)
+@method_decorator(
+    name="delete",
+    decorator=swagger_auto_schema(
+        tags=["Import"],
+        operation_summary="Delete files",
         operation_description="""
         Delete uploaded files for a specific project.
-        """
-        ))
-class FileUploadListAPI(generics.mixins.ListModelMixin,
-                        generics.mixins.DestroyModelMixin,
-                        generics.GenericAPIView):
+        """,
+    ),
+)
+class FileUploadListAPI(
+    generics.mixins.ListModelMixin,
+    generics.mixins.DestroyModelMixin,
+    generics.GenericAPIView,
+):
     parser_classes = (JSONParser, MultiPartParser, FormParser)
     serializer_class = FileUploadSerializer
     permission_required = ViewClassPermission(
@@ -507,50 +616,70 @@ class FileUploadListAPI(generics.mixins.ListModelMixin,
     queryset = FileUpload.objects.all()
 
     def get_queryset(self):
-        project = generics.get_object_or_404(Project.objects.for_user(self.request.user), pk=self.kwargs.get('pk', 0))
-        if project.is_draft or bool_from_request(self.request.query_params, 'all', False):
+        project = generics.get_object_or_404(
+            Project.objects.for_user(self.request.user), pk=self.kwargs.get("pk", 0)
+        )
+        if project.is_draft or bool_from_request(
+            self.request.query_params, "all", False
+        ):
             # If project is in draft state, we return all uploaded files, ignoring queried ids
-            logger.debug(f'Return all uploaded files for draft project {project}')
-            return FileUpload.objects.filter(project_id=project.id, user=self.request.user)
+            logger.debug(f"Return all uploaded files for draft project {project}")
+            return FileUpload.objects.filter(
+                project_id=project.id, user=self.request.user
+            )
 
         # If requested in regular import, only queried IDs are returned to avoid showing previously imported
-        ids = json.loads(self.request.query_params.get('ids', '[]'))
-        logger.debug(f'File Upload IDs found: {ids}')
-        return FileUpload.objects.filter(project_id=project.id, id__in=ids, user=self.request.user)
+        ids = json.loads(self.request.query_params.get("ids", "[]"))
+        logger.debug(f"File Upload IDs found: {ids}")
+        return FileUpload.objects.filter(
+            project_id=project.id, id__in=ids, user=self.request.user
+        )
 
     def get(self, request, *args, **kwargs):
         return self.list(request, *args, **kwargs)
 
     def delete(self, request, *args, **kwargs):
-        project = generics.get_object_or_404(Project.objects.for_user(self.request.user),  pk=self.kwargs['pk'])
-        ids = self.request.data.get('file_upload_ids')
+        project = generics.get_object_or_404(
+            Project.objects.for_user(self.request.user), pk=self.kwargs["pk"]
+        )
+        ids = self.request.data.get("file_upload_ids")
         if ids is None:
             deleted, _ = FileUpload.objects.filter(project=project).delete()
         elif isinstance(ids, list):
             deleted, _ = FileUpload.objects.filter(project=project, id__in=ids).delete()
         else:
             raise ValueError('"file_upload_ids" parameter must be a list of integers')
-        return Response({'deleted': deleted}, status=status.HTTP_200_OK)
+        return Response({"deleted": deleted}, status=status.HTTP_200_OK)
 
 
-@method_decorator(name='get', decorator=swagger_auto_schema(
-        tags=['Import'],
-        operation_summary='Get file upload',
-        operation_description='Retrieve details about a specific uploaded file.'
-    ))
-@method_decorator(name='patch', decorator=swagger_auto_schema(
-        tags=['Import'],
-        operation_summary='Update file upload',
-        operation_description='Update a specific uploaded file.',
-        request_body=FileUploadSerializer
-    ))
-@method_decorator(name='delete', decorator=swagger_auto_schema(
-        tags=['Import'],
-        operation_summary='Delete file upload',
-        operation_description='Delete a specific uploaded file.'))
+@method_decorator(
+    name="get",
+    decorator=swagger_auto_schema(
+        tags=["Import"],
+        operation_summary="Get file upload",
+        operation_description="Retrieve details about a specific uploaded file.",
+    ),
+)
+@method_decorator(
+    name="patch",
+    decorator=swagger_auto_schema(
+        tags=["Import"],
+        operation_summary="Update file upload",
+        operation_description="Update a specific uploaded file.",
+        request_body=FileUploadSerializer,
+    ),
+)
+@method_decorator(
+    name="delete",
+    decorator=swagger_auto_schema(
+        tags=["Import"],
+        operation_summary="Delete file upload",
+        operation_description="Delete a specific uploaded file.",
+    ),
+)
 class FileUploadAPI(generics.RetrieveUpdateDestroyAPIView):
     parser_classes = (JSONParser, MultiPartParser, FormParser)
-    permission_classes = (IsAuthenticated, )
+    permission_classes = (IsAuthenticated,)
     serializer_class = FileUploadSerializer
     queryset = FileUpload.objects.all()
 
@@ -569,15 +698,23 @@ class FileUploadAPI(generics.RetrieveUpdateDestroyAPIView):
 
 
 class UploadedFileResponse(generics.RetrieveAPIView):
-    permission_classes = (IsAuthenticated, )
+    permission_classes = (IsAuthenticated,)
 
     @swagger_auto_schema(auto_schema=None)
     def get(self, *args, **kwargs):
         request = self.request
-        filename = kwargs['filename']
+        filename = kwargs["filename"]
         # XXX needed, on windows os.path.join generates '\' which breaks FileUpload
-        file = settings.UPLOAD_DIR + ('/' if not settings.UPLOAD_DIR.endswith('/') else '') + filename
-        logger.debug(f'Fetch uploaded file by user {request.user} => {file}')
+        file = (
+            settings.UPLOAD_DIR
+            + ("/" if not settings.UPLOAD_DIR.endswith("/") else "")
+            + filename
+        )
+
+        logger.debug(f"Fetch uploaded file by user {request.user} => {file}")
+        # import pdb
+
+        # pdb.set_trace()
         file_upload = FileUpload.objects.filter(file=file).last()
 
         if not file_upload.has_permission(request.user):
@@ -586,36 +723,39 @@ class UploadedFileResponse(generics.RetrieveAPIView):
         file = file_upload.file
         if file.storage.exists(file.name):
             content_type, encoding = mimetypes.guess_type(str(file.name))
-            content_type = content_type or 'application/octet-stream'
-            return RangedFileResponse(request, file.open(mode='rb'), content_type=content_type)
+            content_type = content_type or "application/octet-stream"
+            return RangedFileResponse(
+                request, file.open(mode="rb"), content_type=content_type
+            )
         else:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
 
 class DownloadStorageData(APIView):
-    """ Check auth for nginx auth_request
-    """
+    """Check auth for nginx auth_request"""
+
     swagger_schema = None
-    http_method_names = ['get']
-    permission_classes = (IsAuthenticated, )
+    http_method_names = ["get"]
+    permission_classes = (IsAuthenticated,)
 
     def get(self, request, *args, **kwargs):
-        """ Get export files list
-        """
+        """Get export files list"""
         request = self.request
-        filepath = request.GET.get('filepath')
+        filepath = request.GET.get("filepath")
         if filepath is None:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
-        filepath = unquote(request.GET['filepath'])
+        filepath = unquote(request.GET["filepath"])
 
         url = None
         if filepath.startswith(settings.UPLOAD_DIR):
-            logger.debug(f'Fetch uploaded file by user {request.user} => {filepath}')
+            logger.debug(f"Fetch uploaded file by user {request.user} => {filepath}")
             file_upload = FileUpload.objects.filter(file=filepath).last()
 
             if file_upload is not None and file_upload.has_permission(request.user):
-                url = file_upload.file.storage.url(file_upload.file.name, storage_url=True)
+                url = file_upload.file.storage.url(
+                    file_upload.file.name, storage_url=True
+                )
         elif filepath.startswith(settings.AVATAR_PATH):
             user = User.objects.filter(avatar=filepath).first()
             if user is not None and request.user.active_organization.has_user(user):
@@ -629,26 +769,27 @@ class DownloadStorageData(APIView):
         # Let NGINX handle it
         response = HttpResponse()
         # The below header tells NGINX to catch it and serve, see docker-config/nginx-app.conf
-        redirect = '/file_download/' + protocol + '/' + url.replace(protocol + '://', '')
+        redirect = (
+            "/file_download/" + protocol + "/" + url.replace(protocol + "://", "")
+        )
 
-        response['X-Accel-Redirect'] = redirect
-        response['Content-Disposition'] = 'attachment; filename="{}"'.format(filepath)
+        response["X-Accel-Redirect"] = redirect
+        response["Content-Disposition"] = 'attachment; filename="{}"'.format(filepath)
         return response
 
 
 class PresignStorageData(APIView):
-    """ A file proxy to presign storage urls.
-    """
+    """A file proxy to presign storage urls."""
+
     swagger_schema = None
-    http_method_names = ['get']
-    permission_classes = (IsAuthenticated, )
+    http_method_names = ["get"]
+    permission_classes = (IsAuthenticated,)
 
     def get(self, request, *args, **kwargs):
-        """ Get the presigned url for a given fileuri
-        """
+        """Get the presigned url for a given fileuri"""
         request = self.request
-        task_id = kwargs.get('task_id')
-        fileuri = request.GET.get('fileuri')
+        task_id = kwargs.get("task_id")
+        fileuri = request.GET.get("fileuri")
 
         if fileuri is None or task_id is None:
             return Response(status=status.HTTP_404_NOT_FOUND)
@@ -668,25 +809,31 @@ class PresignStorageData(APIView):
             fileuri = base64.urlsafe_b64decode(fileuri.encode()).decode()
         # For backwards compatibility, try unquote if this fails
         except Exception as exc:
-            logger.debug(f'Failed to decode base64 {fileuri} for task {task_id}: {exc} falling back to unquote')
+            logger.debug(
+                f"Failed to decode base64 {fileuri} for task {task_id}: {exc} falling back to unquote"
+            )
             fileuri = unquote(fileuri)
 
         try:
             resolved = task.resolve_storage_uri(fileuri, project)
         except Exception as exc:
-            logger.error(f'Failed to resolve storage uri {fileuri} for task {task_id}: {exc}')
+            logger.error(
+                f"Failed to resolve storage uri {fileuri} for task {task_id}: {exc}"
+            )
             return Response(status=status.HTTP_404_NOT_FOUND)
 
-        if resolved is None or resolved.get('url') is None:
+        if resolved is None or resolved.get("url") is None:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
-        url = resolved['url']
+        url = resolved["url"]
         max_age = 0
-        if resolved.get('presign_ttl'):
-            max_age = resolved.get('presign_ttl') * 60
+        if resolved.get("presign_ttl"):
+            max_age = resolved.get("presign_ttl") * 60
 
         # Proxy to presigned url
-        response = HttpResponseRedirect(redirect_to=url, status=status.HTTP_303_SEE_OTHER)
-        response.headers['Cache-Control'] = f"no-store, max-age={max_age}"
+        response = HttpResponseRedirect(
+            redirect_to=url, status=status.HTTP_303_SEE_OTHER
+        )
+        response.headers["Cache-Control"] = f"no-store, max-age={max_age}"
 
         return response

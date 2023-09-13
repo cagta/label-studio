@@ -35,9 +35,9 @@ def csv_generate_header(file):
     names = []
     line = file.readline()
 
-    num_columns = len(line.split(b',' if isinstance(line, bytes) else ','))
+    num_columns = len(line.split(b"," if isinstance(line, bytes) else ","))
     for i in range(num_columns):
-        names.append('column' + str(i + 1))
+        names.append("column" + str(i + 1))
     file.seek(0)
     return names
 
@@ -46,23 +46,28 @@ def check_max_task_number(tasks):
     # max tasks
     if len(tasks) > settings.TASKS_MAX_NUMBER:
         raise ValidationError(
-            f'Maximum task number is {settings.TASKS_MAX_NUMBER}, '
-            f'current task number is {len(tasks)}'
+            f"Maximum task number is {settings.TASKS_MAX_NUMBER}, "
+            f"current task number is {len(tasks)}"
         )
 
 
 def check_tasks_max_file_size(value):
     if value >= settings.TASKS_MAX_FILE_SIZE:
         raise ValidationError(
-            f'Maximum total size of all files is {settings.TASKS_MAX_FILE_SIZE} bytes, '
-            f'current size is {value} bytes'
+            f"Maximum total size of all files is {settings.TASKS_MAX_FILE_SIZE} bytes, "
+            f"current size is {value} bytes"
         )
+
 
 def check_extensions(files):
     for filename, file_obj in files.items():
         _, ext = os.path.splitext(file_obj.name)
         if ext.lower() not in settings.SUPPORTED_EXTENSIONS:
-            raise ValidationError(f'{ext} extension is not supported')
+            raise ValidationError(f"{ext} extension is not supported")
+        if ext.lower() == ".pdf":
+            return True
+        else:
+            return False
 
 
 def check_request_files_size(files):
@@ -75,7 +80,7 @@ def create_file_upload(user, project, file):
     instance = FileUpload(user=user, project=project, file=file)
     if settings.SVG_SECURITY_CLEANUP:
         content_type, encoding = mimetypes.guess_type(str(instance.file.name))
-        if content_type in ['image/svg+xml']:
+        if content_type in ["image/svg+xml"]:
             clean_xml = allowlist_svg(instance.file.read())
             instance.file.seek(0)
             instance.file.write(clean_xml)
@@ -91,15 +96,15 @@ def allowlist_svg(dirty_xml):
     from lxml.html import clean
 
     allow_tags = [
-        'xml',
-        'svg',
-        'circle',
-        'ellipse',
-        'line',
-        'path',
-        'polygon',
-        'polyline',
-        'rect',
+        "xml",
+        "svg",
+        "circle",
+        "ellipse",
+        "line",
+        "path",
+        "polygon",
+        "polyline",
+        "rect",
     ]
 
     cleaner = clean.Cleaner(
@@ -118,7 +123,7 @@ def allowlist_svg(dirty_xml):
 
 def str_to_json(data):
     try:
-        json_acceptable_string = data.replace("'", "\"")
+        json_acceptable_string = data.replace("'", '"')
         return json.loads(json_acceptable_string)
     except ValueError:
         return None
@@ -128,16 +133,16 @@ def tasks_from_url(file_upload_ids, project, user, url, could_be_tasks_list):
     """Download file using URL and read tasks from it"""
     # process URL with tasks
     try:
-        filename = url.rsplit('/', 1)[-1]
+        filename = url.rsplit("/", 1)[-1]
 
         validate_upload_url(url, block_local_urls=settings.SSRF_PROTECTION_ENABLED)
         # Reason for #nosec: url has been validated as SSRF safe by the
         # validation check above.
         response = requests.get(
-            url, verify=False, headers={'Accept-Encoding': None}
+            url, verify=False, headers={"Accept-Encoding": None}
         )  # nosec
         file_content = response.content
-        check_tasks_max_file_size(int(response.headers['content-length']))
+        check_tasks_max_file_size(int(response.headers["content-length"]))
         file_upload = create_file_upload(
             user, project, SimpleUploadedFile(filename, file_content)
         )
@@ -168,7 +173,7 @@ def create_file_uploads(user, project, FILES):
         file_upload_ids.append(file_upload.id)
 
     logger.debug(
-        f'created file uploads: {file_upload_ids} could_be_tasks_list: {could_be_tasks_list}'
+        f"created file uploads: {file_upload_ids} could_be_tasks_list: {could_be_tasks_list}"
     )
     return file_upload_ids, could_be_tasks_list
 
@@ -192,7 +197,7 @@ def load_tasks_for_async_import(project_import, user):
             file_upload = create_file_upload(
                 user,
                 project_import.project,
-                SimpleUploadedFile('inplace.json', url.encode()),
+                SimpleUploadedFile("inplace.json", url.encode()),
             )
             file_upload_ids.append(file_upload.id)
             tasks, found_formats, data_keys = FileUpload.load_tasks_from_uploaded_files(
@@ -213,18 +218,18 @@ def load_tasks_for_async_import(project_import, user):
             )
             if could_be_tasks_list:
                 project_import.could_be_tasks_list = True
-                project_import.save(update_fields=['could_be_tasks_list'])
+                project_import.save(update_fields=["could_be_tasks_list"])
 
     elif project_import.tasks:
         tasks = project_import.tasks
 
     # check is data root is list
     if not isinstance(tasks, list):
-        raise ValidationError('load_tasks: Data root must be list')
+        raise ValidationError("load_tasks: Data root must be list")
 
     # empty tasks error
     if not tasks:
-        raise ValidationError('load_tasks: No tasks added')
+        raise ValidationError("load_tasks: No tasks added")
 
     check_max_task_number(tasks)
     return tasks, file_upload_ids, found_formats, list(data_keys)
@@ -238,9 +243,29 @@ def load_tasks(request, project):
     # take tasks from request FILES
     if len(request.FILES):
         check_request_files_size(request.FILES)
-        check_extensions(request.FILES)
+        pdf = check_extensions(request.FILES)
         for filename, file in request.FILES.items():
-            file_upload = create_file_upload(request.user, project, file)
+            if pdf:
+                from pdf2image import convert_from_bytes
+
+                # import pdb
+
+                # pdb.set_trace()
+                from django.core.files.base import ContentFile
+
+                images = convert_from_bytes(file.read())
+                file._name = file._name.split(".")[0] + ".png"
+                file.content_type = "image/png"
+
+                import io
+
+                with io.BytesIO() as buf:
+                    images[0].save(buf, format="png")
+                    file.write(buf.getbuffer())
+                    content_file = ContentFile(buf.getbuffer(), name=file._name)
+                file_upload = create_file_upload(request.user, project, content_file)
+            else:
+                file_upload = create_file_upload(request.user, project, file)
             if file_upload.format_could_be_tasks_list:
                 could_be_tasks_list = True
             file_upload_ids.append(file_upload.id)
@@ -249,9 +274,9 @@ def load_tasks(request, project):
         )
 
     # take tasks from url address
-    elif 'application/x-www-form-urlencoded' in request.content_type:
+    elif "application/x-www-form-urlencoded" in request.content_type:
         # empty url
-        url = request.data.get('url')
+        url = request.data.get("url")
         if not url:
             raise ValidationError('"url" is not found in request data')
 
@@ -259,7 +284,7 @@ def load_tasks(request, project):
         json_data = str_to_json(url)
         if json_data:
             file_upload = create_file_upload(
-                request.user, project, SimpleUploadedFile('inplace.json', url.encode())
+                request.user, project, SimpleUploadedFile("inplace.json", url.encode())
             )
             file_upload_ids.append(file_upload.id)
             tasks, found_formats, data_keys = FileUpload.load_tasks_from_uploaded_files(
@@ -279,24 +304,24 @@ def load_tasks(request, project):
             )
 
     # take one task from request DATA
-    elif 'application/json' in request.content_type and isinstance(request.data, dict):
+    elif "application/json" in request.content_type and isinstance(request.data, dict):
         tasks = [request.data]
 
     # take many tasks from request DATA
-    elif 'application/json' in request.content_type and isinstance(request.data, list):
+    elif "application/json" in request.content_type and isinstance(request.data, list):
         tasks = request.data
 
     # incorrect data source
     else:
-        raise ValidationError('load_tasks: No data found in DATA or in FILES')
+        raise ValidationError("load_tasks: No data found in DATA or in FILES")
 
     # check is data root is list
     if not isinstance(tasks, list):
-        raise ValidationError('load_tasks: Data root must be list')
+        raise ValidationError("load_tasks: Data root must be list")
 
     # empty tasks error
     if not tasks:
-        raise ValidationError('load_tasks: No tasks added')
+        raise ValidationError("load_tasks: No tasks added")
 
     check_max_task_number(tasks)
     return tasks, file_upload_ids, could_be_tasks_list, found_formats, list(data_keys)
