@@ -143,9 +143,31 @@ def tasks_from_url(file_upload_ids, project, user, url, could_be_tasks_list):
         )  # nosec
         file_content = response.content
         check_tasks_max_file_size(int(response.headers["content-length"]))
-        file_upload = create_file_upload(
-            user, project, SimpleUploadedFile(filename, file_content)
-        )
+        ext = filename.split(".")[1]
+        if ext == "pdf":
+            from pdf2image import convert_from_bytes
+
+            # import pdb
+
+            # pdb.set_trace()
+            from django.core.files.base import ContentFile
+
+            images = convert_from_bytes(file_content)
+            filename = filename.split(".")[0] + ".png"
+
+            import io
+
+            with io.BytesIO() as buf:
+                images[0].save(buf, format="png")
+                file_content = buf.getvalue()
+
+            file_upload = create_file_upload(
+                user, project, SimpleUploadedFile(filename, file_content)
+            )
+        else:
+            file_upload = create_file_upload(
+                user, project, SimpleUploadedFile(filename, file_content)
+            )
         if file_upload.format_could_be_tasks_list:
             could_be_tasks_list = True
         file_upload_ids.append(file_upload.id)
@@ -282,6 +304,9 @@ def load_tasks(request, project):
 
         # try to load json with task or tasks from url as string
         json_data = str_to_json(url)
+        import pdb
+
+        pdb.set_trace()
         if json_data:
             file_upload = create_file_upload(
                 request.user, project, SimpleUploadedFile("inplace.json", url.encode())
