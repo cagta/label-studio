@@ -138,14 +138,50 @@ def tasks_from_url(file_upload_ids, project, user, url, could_be_tasks_list):
         validate_upload_url(url, block_local_urls=settings.SSRF_PROTECTION_ENABLED)
         # Reason for #nosec: url has been validated as SSRF safe by the
         # validation check above.
+        if url[-4:] == ".pdf":
+            url = url.replace('3dhubs.test/localstack', '172.27.0.6:4566')
+
         response = requests.get(
             url, verify=False, headers={"Accept-Encoding": None}
         )  # nosec
         file_content = response.content
         check_tasks_max_file_size(int(response.headers["content-length"]))
-        file_upload = create_file_upload(
-            user, project, SimpleUploadedFile(filename, file_content)
-        )
+        print(f"DEBUG URL: {url}")
+        # pdf = check_extensions(url)
+        # print(f"DEBUG: pdf={pdf}")
+        # if pdf:
+        if url[-4:] == ".pdf":
+            from pdf2image import convert_from_bytes, convert_from_path
+            import tempfile
+
+            # import pdb
+
+            # pdb.set_trace()
+            from django.core.files.base import ContentFile
+
+    
+            # with tempfile.TemporaryDirectory() as path:
+                # images = convert_from_path(url, output_folder=path)
+            images = convert_from_bytes(file_content)
+            filename = url.split('/')[-1]
+            filename = filename[:-4] + '.png'
+
+            import io
+
+            content_type = None
+            with io.BytesIO() as buf:
+                images[0].save(buf, format="png")
+                content_type = "image/png"
+                simple_uploaded_file = SimpleUploadedFile(filename, buf.getbuffer(), content_type)
+
+        if simple_uploaded_file:
+            file_upload = create_file_upload(
+                user, project, simple_uploaded_file
+            )
+        else:
+            file_upload = create_file_upload(
+                user, project, SimpleUploadedFile(filename, file_content)
+            )
         if file_upload.format_could_be_tasks_list:
             could_be_tasks_list = True
         file_upload_ids.append(file_upload.id)
@@ -256,6 +292,7 @@ def load_tasks(request, project):
                 images = convert_from_bytes(file.read())
                 file._name = file._name.split(".")[0] + ".png"
                 file.content_type = "image/png"
+                print(f"DEBUG: type {type(file)}")
 
                 import io
 
@@ -314,6 +351,8 @@ def load_tasks(request, project):
     # incorrect data source
     else:
         raise ValidationError("load_tasks: No data found in DATA or in FILES")
+
+    print(f"DEBUG tasks: {tasks}")
 
     # check is data root is list
     if not isinstance(tasks, list):
